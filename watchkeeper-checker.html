@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WatchKeeper — Supabase Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #f8f5f0;
+    --bg2:     #f0ece4;
+    --bg3:     #e8e2d8;
+    --bd:      #e0d8cc;
+    --bd2:     #d8d0c4;
+    --text:    #2a2520;
+    --text2:   #9a8878;
+    --text3:   #b8a898;
+    --red:     #dc2626;
+    --red-s:   rgba(220,38,38,0.08);
+    --green:   #16a34a;
+    --green-s: rgba(22,163,74,0.08);
+    --amber:   #b45309;
+    --amber-s: rgba(180,83,9,0.08);
+  }
+
+  html { font-family: 'Geist', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  body {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+    animation: fadeIn .4s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Header */
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .shield svg { width: 32px; height: 32px; }
+  .logo { font-family: 'Rajdhani', sans-serif; font-size: 26px; font-weight: 600; letter-spacing: .5px; line-height: 1; }
+  .logo span { color: var(--red); }
+  .subtitle { font-size: 11px; font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text3); margin-bottom: 28px; padding-left: 44px; }
+
+  /* Card */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--bd);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .card-title {
+    font-size: 9px; font-weight: 600; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 14px;
+  }
+
+  /* Inputs */
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+  .field label { font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--text2); }
+  .field label span { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text3); }
+  .field input {
+    background: var(--bg);
+    border: 1px solid var(--bd);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-family: 'Geist', sans-serif;
+    font-size: 12.5px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+    width: 100%;
+  }
+  .field input:focus { border-color: var(--text2); }
+  .field input::placeholder { color: var(--text3); }
+
+  /* Button */
+  .btn-run {
+    width: 100%; background: var(--text); color: var(--bg);
+    border: none; border-radius: 10px;
+    font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 11px; cursor: pointer; margin-top: 4px;
+    transition: opacity .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-run:hover { opacity: .85; }
+  .btn-run:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(248,245,240,0.3);
+    border-top-color: var(--bg);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Results */
+  .results { display: none; flex-direction: column; gap: 10px; }
+
+  .result-item {
+    border-radius: 10px;
+    padding: 13px 15px;
+    border: 1px solid transparent;
+    animation: slideIn .25s ease both;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
+
+  .result-item.pass  { background: var(--green-s); border-color: rgba(22,163,74,0.2); }
+  .result-item.fail  { background: var(--red-s);   border-color: rgba(220,38,38,0.2); }
+  .result-item.warn  { background: var(--amber-s); border-color: rgba(180,83,9,0.2); }
+  .result-item.info  { background: var(--bg2);     border-color: var(--bd); }
+
+  .result-header { display: flex; align-items: flex-start; gap: 10px; }
+  .result-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .result-label { font-size: 12.5px; font-weight: 500; color: var(--text); line-height: 1.4; }
+  .result-detail { font-size: 11px; color: var(--text2); margin-top: 4px; line-height: 1.5; }
+  .result-steps { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.06); }
+  .result-steps .step { font-size: 11px; color: var(--text); line-height: 1.6; margin-bottom: 2px; display: flex; gap: 6px; }
+  .result-steps .step::before { content: attr(data-n); font-weight: 600; color: var(--red); flex-shrink: 0; }
+
+  /* Summary bar */
+  .summary {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 15px; border-radius: 10px;
+    background: var(--bg2); border: 1px solid var(--bd);
+    font-size: 12.5px; font-weight: 500; color: var(--text);
+    margin-bottom: 4px;
+  }
+  .summary .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Tip box */
+  .tips {
+    background: var(--bg2); border: 1px solid var(--bd);
+    border-radius: 12px; padding: 15px 17px; margin-top: 4px;
+  }
+  .tips-title { font-size: 9px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+  .tip { display: flex; gap: 9px; margin-bottom: 8px; font-size: 11.5px; color: var(--text2); line-height: 1.5; }
+  .tip:last-child { margin-bottom: 0; }
+  .tip-icon { flex-shrink: 0; margin-top: 1px; }
+
+  /* Latency badge */
+  .latency { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px; margin-left: 6px; vertical-align: middle; }
+  .latency.fast   { background: var(--green-s); color: var(--green); }
+  .latency.medium { background: var(--amber-s); color: var(--amber); }
+  .latency.slow   { background: var(--red-s);   color: var(--red); }
+
+  /* Divider */
+  .divider { border: none; border-top: 1px solid var(--bd); margin: 18px 0; }
+
+  /* Footer */
+  .footer { text-align: center; font-size: 10.5px; color: var(--text3); margin-top: 32px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="shield">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M24 5 L40 11 V26 C40 35 24 43 24 43 C24 43 8 35 8 26 V11 Z" stroke="#2a2520" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+      <polyline points="15,18 19,31 24,20 29,31 33,18" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+  </div>
+  <div class="logo">Watch<span>Keeper</span></div>
+</div>
+<div class="subtitle">Supabase Connection Checker</div>
+
+<div class="card">
+  <div class="card-title">Your Supabase Credentials</div>
+  <div class="field">
+    <label>Project URL</label>
+    <input id="inp-url" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label>Publishable Key <span>(sb_publishable_… or eyJ…)</span></label>
+    <input id="inp-key" type="text" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false">
+  </div>
+  <button class="btn-run" id="btn-run" onclick="runChecks()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btn-label">Run Connection Check</span>
+  </button>
+</div>
+
+<div class="results" id="results"></div>
+
+<div class="tips">
+  <div class="tips-title">Tips for a healthy setup</div>
+  <div class="tip"><span class="tip-icon">🌍</span><span>Create your Supabase project in the region closest to you. Choose the region <strong>closest to your location</strong> for the best response times.</span></div>
+  <div class="tip"><span class="tip-icon">⏱</span><span>Free tier projects pause after 7 days of inactivity. The first request after a pause takes 3–8 seconds — this is normal. Just wait it out and it will be fast afterward.</span></div>
+  <div class="tip"><span class="tip-icon">🔑</span><span>Use the <strong>Publishable Key</strong> (starts with <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10.5px">sb_publishable_</code>) from the API Keys tab — not the legacy anon key.</span></div>
+  <div class="tip"><span class="tip-icon">🗄️</span><span>If tables are missing, go to your Supabase project → SQL Editor → run the SQL from the Guide tab in WatchKeeper.</span></div>
+  <div class="tip"><span class="tip-icon">🔁</span><span>If a new project feels slow on first connect, wait 10 seconds and try again. A brand new project needs one warm-up request.</span></div>
+</div>
+
+<div class="footer">
+  Part of the WatchKeeper extension · Built by Stephen Strange
+</div>
+
+<script>
+async function runChecks() {
+  const url = document.getElementById('inp-url').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('inp-key').value.trim();
+  const btn = document.getElementById('btn-run');
+  const spinner = document.getElementById('spinner');
+  const label = document.getElementById('btn-label');
+  const resultsEl = document.getElementById('results');
+
+  if (!url || !key) {
+    alert('Please enter both your Project URL and Publishable Key.');
+    return;
+  }
+  if (!url.startsWith('https://') || !url.includes('supabase')) {
+    alert('Project URL should look like: https://xxxx.supabase.co');
+    return;
+  }
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  label.textContent = 'Running checks…';
+  resultsEl.style.display = 'none';
+  resultsEl.innerHTML = '';
+
+  const results = [];
+
+  // ── Check 1: URL reachability ─────────────────────────────────────────
+  const t0 = Date.now();
+  let reachable = false, latency = 0, reachError = '';
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 12000);
+    const headers = { 'apikey': key, 'Content-Type': 'application/json' };
+    if (key.startsWith('eyJ')) headers['Authorization'] = 'Bearer ' + key;
+    const r = await fetch(`${url}/rest/v1/wk_saves?limit=1`, { headers, signal: ctrl.signal });
+    clearTimeout(tid);
+    latency = Date.now() - t0;
+    if (r.status === 401 || r.status === 403) {
+      reachError = `Authentication failed (${r.status}) — Supabase rejected the key.`;
+    } else {
+      reachable = true;
+    }
+  } catch(e) {
+    latency = Date.now() - t0;
+    if (e.name === 'AbortError') {
+      reachError = 'Request timed out after 12 seconds — project may be paused or URL is incorrect.';
+    } else {
+      reachError = `Network error: ${e.message}`;
+    }
+  }
+
+  const latencyLabel = latency < 800 ? 'fast' : latency < 2500 ? 'medium' : 'slow';
+  const latencyText  = latency < 800 ? 'Fast' : latency < 2500 ? 'Moderate' : 'Slow';
+
+  if (reachable) {
+    results.push({
+      type: 'pass',
+      icon: '✓',
+      label: `Project reachable — credentials accepted`,
+      detail: `Response time: ${latency}ms <span class="latency ${latencyLabel}">${latencyText}</span>${
+        latencyLabel === 'slow' ? ' — consider creating a project in a region closer to you.' :
+        latencyLabel === 'medium' ? ' — acceptable, but a project in a closer region would be faster.' : ' — great.'
+      }`
+    });
+  } else if (reachError.includes('timed out')) {
+    results.push({
+      type: 'fail', icon: '✕',
+      label: 'Project not responding',
+      detail: reachError,
+      steps: [
+        'Check your Project URL is correct — it should be https://xxxx.supabase.co',
+        'Your project may be paused (free tier). Go to supabase.com → open your project — this will wake it up.',
+        'Wait 10 seconds then run the check again.',
+        'If still failing, try creating a fresh project in a region closer to your location.'
+      ]
+    });
+  } else if (reachError.includes('Authentication') || reachError.includes('401') || reachError.includes('403')) {
+    results.push({
+      type: 'fail', icon: '✕',
+      label: 'Authentication failed',
+      detail: reachError,
+      steps: [
+        'Go to your Supabase project → Project Overview → API Keys.',
+        'Copy the Publishable key (starts with sb_publishable_).',
+        'Make sure you have not accidentally copied a trailing space or cut off the key.',
+        'If your project only has a legacy anon key (eyJ…), that will work too — paste it in the key field.'
+      ]
+    });
+  } else {
+    results.push({
+      type: 'fail', icon: '✕',
+      label: 'Could not reach project',
+      detail: reachError,
+      steps: [
+        'Double-check your Project URL — copy it fresh from Supabase → Project Settings → API.',
+        'Make sure you are connected to the internet.',
+        'Try opening your Supabase project dashboard to confirm it is active.'
+      ]
+    });
+  }
+
+  // ── Check 2: Tables exist ─────────────────────────────────────────────
+  if (reachable) {
+    const tables = ['wk_saves', 'wk_notes', 'wk_sites', 'wk_devices'];
+    const tableResults = {};
+    for (const t of tables) {
+      try {
+        const headers = { 'apikey': key, 'Content-Type': 'application/json' };
+        if (key.startsWith('eyJ')) headers['Authorization'] = 'Bearer ' + key;
+        const r = await fetch(`${url}/rest/v1/${t}?limit=0`, { headers });
+        tableResults[t] = r.status === 200 || r.status === 406;
+      } catch { tableResults[t] = false; }
+    }
+
+    const allExist   = Object.values(tableResults).every(Boolean);
+    const missingTables = tables.filter(t => !tableResults[t]);
+
+    if (allExist) {
+      results.push({
+        type: 'pass', icon: '✓',
+        label: 'All 4 tables found (wk_saves, wk_notes, wk_sites, wk_devices)',
+        detail: 'Your database schema is complete and ready to use.'
+      });
+    } else if (missingTables.length === tables.length) {
+      results.push({
+        type: 'fail', icon: '✕',
+        label: 'No WatchKeeper tables found',
+        detail: 'The database is reachable but none of the required tables exist yet.',
+        steps: [
+          'Open WatchKeeper → Guide tab → copy the SQL block.',
+          'Go to your Supabase project → SQL Editor → paste the SQL → click Run.',
+          'Come back and run this check again to confirm.'
+        ]
+      });
+    } else {
+      results.push({
+        type: 'warn', icon: '⚠',
+        label: `${missingTables.length} table${missingTables.length > 1 ? 's' : ''} missing: ${missingTables.join(', ')}`,
+        detail: 'Some tables exist but others are missing. This usually means the SQL was run from an older version of WatchKeeper.',
+        steps: [
+          'Open WatchKeeper → Guide tab → copy the full SQL block.',
+          'Go to Supabase → SQL Editor → paste and run it.',
+          'The SQL uses CREATE TABLE IF NOT EXISTS so existing tables will not be affected.'
+        ]
+      });
+    }
+
+    // ── Check 3: Permissions (can we write?) ─────────────────────────────
+    const testId = 'wk_test_' + Date.now();
+    let canWrite = false;
+    try {
+      const headers = { 'apikey': key, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' };
+      if (key.startsWith('eyJ')) headers['Authorization'] = 'Bearer ' + key;
+      const r = await fetch(`${url}/rest/v1/wk_saves`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: testId, vault_key: '__wk_checker_test__', saved_at: Date.now() })
+      });
+      canWrite = r.status === 200 || r.status === 201;
+      // Clean up test row
+      if (canWrite) {
+        const dHeaders = { 'apikey': key };
+        if (key.startsWith('eyJ')) dHeaders['Authorization'] = 'Bearer ' + key;
+        await fetch(`${url}/rest/v1/wk_saves?id=eq.${testId}`, { method: 'DELETE', headers: dHeaders });
+      }
+    } catch {}
+
+    if (canWrite) {
+      results.push({
+        type: 'pass', icon: '✓',
+        label: 'Write permissions confirmed',
+        detail: 'WatchKeeper can read and write to your database. Everything is set up correctly.'
+      });
+    } else if (allExist) {
+      results.push({
+        type: 'warn', icon: '⚠',
+        label: 'Could not confirm write permissions',
+        detail: 'Tables exist but a test write failed. This may mean the anon role has not been granted access.',
+        steps: [
+          'Go to Supabase → SQL Editor and run the full SQL from the WatchKeeper Guide tab.',
+          'Make sure the GRANT ALL and ALTER TABLE DISABLE ROW LEVEL SECURITY lines are included.',
+          'Run this check again after re-running the SQL.'
+        ]
+      });
+    }
+
+    // ── Check 4: Latency advice ───────────────────────────────────────────
+    if (latencyLabel === 'slow') {
+      results.push({
+        type: 'warn', icon: '⚠',
+        label: `Response time is slow (${latency}ms)`,
+        detail: 'Your Supabase project may be in a region far from your location, or it just woke up from a free-tier pause.',
+        steps: [
+          'Check your project region: Supabase Dashboard → Project Settings → General.',
+          'If the region is far from your location, consider creating a new project in the closest available region.',
+          'If you just created or opened the project, wait 10 seconds and run the check again — the first request is always slower.'
+        ]
+      });
+    } else if (latencyLabel === 'medium') {
+      results.push({
+        type: 'info', icon: 'ℹ',
+        label: `Response time is moderate (${latency}ms)`,
+        detail: 'Connection works but could be faster. Check your Supabase project region and consider switching to one closer to your location.'
+      });
+    }
+  }
+
+  // ── Summary ───────────────────────────────────────────────────────────
+  const hasFail = results.some(r => r.type === 'fail');
+  const hasWarn = results.some(r => r.type === 'warn');
+  const summaryColor = hasFail ? 'var(--red)' : hasWarn ? 'var(--amber)' : 'var(--green)';
+  const summaryText  = hasFail ? 'Issues found — see details below'
+                     : hasWarn ? 'Working with warnings — see details below'
+                     : 'All checks passed — WatchKeeper is ready to use';
+
+  let html = `<div class="summary"><div class="dot" style="background:${summaryColor}"></div>${summaryText}</div>`;
+
+  results.forEach((r, i) => {
+    let stepsHtml = '';
+    if (r.steps && r.steps.length) {
+      stepsHtml = '<div class="result-steps">' + r.steps.map((s, n) =>
+        `<div class="step" data-n="${n+1}.">${s}</div>`
+      ).join('') + '</div>';
+    }
+    html += `<div class="result-item ${r.type}" style="animation-delay:${i*60}ms">
+      <div class="result-header">
+        <div class="result-icon">${r.icon}</div>
+        <div>
+          <div class="result-label">${r.label}</div>
+          ${r.detail ? `<div class="result-detail">${r.detail}</div>` : ''}
+        </div>
+      </div>
+      ${stepsHtml}
+    </div>`;
+  });
+
+  resultsEl.innerHTML = html;
+  resultsEl.style.display = 'flex';
+  btn.disabled = false;
+  spinner.style.display = 'none';
+  label.textContent = 'Run Again';
+  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Allow Enter key to trigger check
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('btn-run').disabled) runChecks();
+});
+</script>
+</body>
+</html>
